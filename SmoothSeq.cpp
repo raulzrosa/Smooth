@@ -1,5 +1,9 @@
-/*	g++ -o smooth smooth.cpp `pkg-config --cflags --libs opencv`
-	g++ -o sequencial sequencial.cpp `pkg-config --cflags --libs opencv*/
+/*	
+	g++ -o SmoothSeq SmoothSeq.cpp `pkg-config --cflags --libs opencv`
+	./SmoothSeq image_in type_img image_out
+	type_img -> 0 = GRAYSCALE
+	type_img -> 1 = COLOR
+*/
 	
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -59,8 +63,6 @@ Mat *aplica_smooth_grayscale(Mat *in) {
 
 Mat *aplica_smooth_color(Mat *in) {
 
-
-	
 	//copia imagem de entrada 
 	Mat *out = new Mat(in->size(), CV_8UC3, 1);
 	//Mat aux(in->size(), CV_8UC3, 1);
@@ -113,7 +115,6 @@ Mat *aplica_smooth_color(Mat *in) {
 }
 
 int main(int argc, char *argv[]) {
-
 	//diz se a imagem é grayscale or color
 	int tipo_img = atoi(argv[2]);
 	clock_t itime, ftime;
