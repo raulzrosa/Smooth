@@ -7,17 +7,9 @@
 #include <mpi.h>
 /*
 	mpic++ -o SmoothMPI SmoothMPI.cpp `pkg-config --cflags --libs opencv`
-	mpirun -np 4 SmoothMPI
+	mpirun -np 4 SmoothMPI image_in type_img image_out
 */
 
-//#define NUM_NODES 4
-#define MASTER 0
-//	g++ -o cropImage cropImage.cpp `pkg-config --cflags --libs opencv`
-			//crop[i].release();
-			/*printf("%d %d %d\n",i,crop[i].size().height,crop[i].size().width);
-			namedWindow("in", CV_WINDOW_AUTOSIZE );
-			imshow("in", crop[i]);
-			waitKey(0);*/
 using namespace cv;
 using namespace std;
 
@@ -60,7 +52,6 @@ Mat *aplica_smooth_grayscale(Mat& in) {
 			+ in.at<uchar>(i - 2, j + 2)
 			+ in.at<uchar>(i - 2, j - 2);
 			average = average/25;
-		//	printf("%f ",average);	
 			out->at<uchar>(i - border, j - border) = (uchar)average;
 		}
 	}
@@ -134,7 +125,6 @@ int main(int argc, char *argv[]) {
     Mat in, crop, out;
     int h_img_entrada, w_img_entrada;
 
-    //printf("NUMERO DE NOS = %d\n",NUM_NODES);
     if(rank == 0)  {
     	//le a imagem  e salva suas dimensões para um futuro uso
     	if(tipo_img == 0) {
@@ -144,7 +134,7 @@ int main(int argc, char *argv[]) {
 		}
 	    h_img_entrada = in.size().height;
 	    w_img_entrada = in.size().width;
-	    printf("entrada -> h:%d w:%d\n", h_img_entrada,w_img_entrada);
+
 	    //calcula o tamanho de cada pedaço
 		int divisao_h = in.size().height/(NUM_NODES - 1);
 		int divisao_w = in.size().width;
@@ -177,11 +167,9 @@ int main(int argc, char *argv[]) {
 		in.release();
 
 		//recebe os pedaços dos nós
-		//out(h_img_entrada, w_img_entrada,  CV_8U, 1);
-	
 		for(int i = 1; i < NUM_NODES; i++) {
 			MPI_Recv(dimensoes, 3, MPI_INT, i, 2, MPI_COMM_WORLD, &status);
-			//printf("%d %d\n", dimensoes[0],dimensoes[1]);
+
 			if(dimensoes[2] == 0) {
 				Mat pedaco(dimensoes[1], dimensoes[0] ,CV_8U);
 				MPI_Recv(pedaco.data, dimensoes[0]*dimensoes[1], MPI_UNSIGNED_CHAR, i, 3, MPI_COMM_WORLD, &status);
@@ -200,15 +188,13 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-			namedWindow("in", CV_WINDOW_AUTOSIZE );
-			imshow("in", out);
-			waitKey(0);
-		//printf("MASTER SHOW DE BOLA\n");
+		imwrite(argv[3], out);
+
 	} else {
 		//parte do código que roda dentro de cada nó
 		int dimensoes[3];
 		MPI_Recv(dimensoes, 3, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
-		printf("w:%d h:%d\n", dimensoes[0],dimensoes[1]);
+
 		if(dimensoes[2] == 0) {
 			Mat pedaco(Size(dimensoes[0], dimensoes[1]), CV_8U);	
 			MPI_Recv(pedaco.data, dimensoes[0]*dimensoes[1], MPI_UNSIGNED_CHAR, 0, 1, MPI_COMM_WORLD, &status);
