@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
 	if(smooth(tipo_img) == 1) {
 		imwrite(fileOut, out_p);
 	} else {
-		printf("Nao foi possivel criar nova imagem.\n");
+		cout << "Nao foi possivel criar nova imagem." << endl;
 	}
 	in.release();
 	out_p.release();
