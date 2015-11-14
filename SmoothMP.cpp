@@ -11,8 +11,9 @@
 #include <vector>
 #include <cmath>
 #include <omp.h>
-#include <time.h>
+
 #define NTHREADS 4
+#include <sys/time.h>
 
 using namespace cv;
 using namespace std;
@@ -105,8 +106,6 @@ int smooth(int tipo_img) {
 		return 0;
 	}
 	
-	//achar a média aritmética e depois atualizar o pixel
-	float average;
 	omp_set_num_threads(NTHREADS);	
 	//int ini_i = 0, ini_j = 0, end_i = 100, end_j = 100;
 	int ini_i[4],ini_j[4],end_i[4],end_j[4];
@@ -167,9 +166,16 @@ int main(int argc, char *argv[]) {
 		cout << "Nao foi possivel abrir a  imagem: " << endl;
 		return -1;
 	}
+	//pegar o tempo de inicio
+	struct timeval inicio, fim;
+    gettimeofday(&inicio,0);
 
 	//aplica algoritmo smooth e recebe a nova imagem
 	if(smooth(tipo_img) == 1) {
+		//pega o tempo de fim, faz a diferença e imprime na tela
+		gettimeofday(&fim,0);
+    	float speedup = (fim.tv_sec + fim.tv_usec/1000000.0) - (inicio.tv_sec + inicio.tv_usec/1000000.0);
+    	cout << "tempo MPI: " << speedup << endl;
 		imwrite(fileOut, out_p);
 	} else {
 		cout << "Nao foi possivel criar nova imagem." << endl;
