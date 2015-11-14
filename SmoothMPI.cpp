@@ -1,6 +1,9 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
+
+#include <sys/time.h>
+
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -12,14 +15,12 @@
 
 using namespace cv;
 using namespace std;
-
+int border = 2;
 Mat *aplica_smooth_grayscale(Mat& in) {
 
-	//border = 1 pois tamanho da máscara = 5 => floor(5/2) = 2
-	int border = 2;
-	Mat *out = new Mat(in.size(), CV_8U, 1);
+
+	Mat *out = new Mat(in.size().height - 4, in.size().width - 4, CV_8U, 1);
 	//replica a borda pra solucionar o problema dos pixels de borda
-	copyMakeBorder(in, in, border, border, border, border, BORDER_REPLICATE);
 	//achar a média aritmética e depois atualizar o pixel
 	float average;
 
@@ -62,13 +63,10 @@ Mat *aplica_smooth_grayscale(Mat& in) {
 Mat *aplica_smooth_color(Mat& in) {
 
 	//copia imagem de entrada 
-	Mat *out = new Mat(in.size(), CV_8UC3, 1);
+	Mat *out = new Mat(in.size().height - 4,in.size().width - 4, CV_8UC3, 1);
 	//Mat aux(in->size(), CV_8UC3, 1);
-	//border = 1 pois tamanho da máscara = 5 => floor(5/2) = 2
-	int border = 2;
-	
+
 	//replica a borda pra solucionar o problema dos pixels de borda
-	copyMakeBorder(in, in, border, border, border, border, BORDER_REPLICATE);
 
 	//achar a média aritmética e depois atualizar o pixel
 	float average;
@@ -121,9 +119,7 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	//descobre quantos nós a maquina suporta
     MPI_Comm_size(MPI_COMM_WORLD, &NUM_NODES);
-
     Mat in, crop, out;
-    int h_img_entrada, w_img_entrada;
 
     if(rank == 0)  {
     	//le a imagem  e salva suas dimensões para um futuro uso
@@ -132,8 +128,9 @@ int main(int argc, char *argv[]) {
 		} else if(tipo_img == 1) {
 			in = imread(argv[1], CV_LOAD_IMAGE_COLOR);
 		}
-	    h_img_entrada = in.size().height;
-	    w_img_entrada = in.size().width;
+		//pegar o tempo de inicio
+		struct timeval inicio, fim;
+    	gettimeofday(&inicio,0);
 
 	    //calcula o tamanho de cada pedaço
 		int divisao_h = in.size().height/(NUM_NODES - 1);
@@ -146,14 +143,22 @@ int main(int argc, char *argv[]) {
 			//recorto um pedaço da imagem pra mandar para o nó i
 			//if else é pra pegar o restinho da imagem que sobre quando a divisão não é inteira
 			if(i != NUM_NODES - 1) {
-				crop =in(Rect(0,divisao_h*(i - 1),divisao_w,divisao_h));
+				if(i == 1) {
+					crop = in(Rect(0,divisao_h*(i - 1),divisao_w,divisao_h + 2));
+					copyMakeBorder(crop, crop, 2, 0, border, border, BORDER_REPLICATE);
+				} else {
+					crop = in(Rect(0,divisao_h*(i - 1) - 2,divisao_w,divisao_h + 4));
+					copyMakeBorder(crop, crop, 0, 0, border, border, BORDER_REPLICATE);
+				}
 			} else {
-				crop =in(Rect(0,divisao_h*(i - 1),divisao_w,divisao_h + resto_divisao));
+				crop =in(Rect(0,divisao_h*(i - 1) - 2,divisao_w,divisao_h + resto_divisao));
+				copyMakeBorder(crop, crop, 0, 2, border, border, BORDER_REPLICATE);
 			}
 			//pego as dimensões do pedaço da imagem e salvo num tipo struct 'image' definido la em cima
 			dimensoes[0] = crop.size().width;
 			dimensoes[1] = crop.size().height;
 			dimensoes[2] = tipo_img;
+	
 			// envio as dimensões para o nó
    			MPI_Send(dimensoes, 3, MPI_INT, i, 0, MPI_COMM_WORLD);
 			// envio o pedaço da imagem'
@@ -169,10 +174,10 @@ int main(int argc, char *argv[]) {
 		//recebe os pedaços dos nós
 		for(int i = 1; i < NUM_NODES; i++) {
 			MPI_Recv(dimensoes, 3, MPI_INT, i, 2, MPI_COMM_WORLD, &status);
-
 			if(dimensoes[2] == 0) {
 				Mat pedaco(dimensoes[1], dimensoes[0] ,CV_8U);
 				MPI_Recv(pedaco.data, dimensoes[0]*dimensoes[1], MPI_UNSIGNED_CHAR, i, 3, MPI_COMM_WORLD, &status);
+				 //crop = pedaco(Rect(2, 2, pedaco.size().width - 2, pedaco.size().height - 2));
 				if(i == 1) {
 					vconcat(pedaco, out);
 				} else {
@@ -181,6 +186,7 @@ int main(int argc, char *argv[]) {
 			} else if(dimensoes[2] == 1) {
 				Mat pedaco(dimensoes[1], dimensoes[0] ,CV_8UC3);
 				MPI_Recv(pedaco.data, dimensoes[0]*dimensoes[1]*3, MPI_UNSIGNED_CHAR, i, 3, MPI_COMM_WORLD, &status);
+				//crop = pedaco(Rect(2, 2, pedaco.size().width - 2, pedaco.size().height - 2));
 				if(i == 1) {
 					vconcat(pedaco, out);
 				} else {
@@ -188,6 +194,14 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+		//namedWindow("in", CV_WINDOW_AUTOSIZE );
+		//imshow("in", out);
+		//waitKey(0);
+
+		//pega o tempo de fim, faz a diferença e imprime na tela
+		gettimeofday(&fim,0);
+    	float speedup = (fim.tv_sec + fim.tv_usec/1000000.0) - (inicio.tv_sec + inicio.tv_usec/1000000.0);
+    	cout << "tempo MPI: " << speedup << endl;
 		imwrite(argv[3], out);
 
 	} else {
@@ -201,7 +215,8 @@ int main(int argc, char *argv[]) {
 			Mat *out;
 			out = aplica_smooth_grayscale(pedaco);
 			pedaco.release();
-
+			dimensoes[0] = out->size().width;
+			dimensoes[1] =  out->size().height;
 			MPI_Send(dimensoes, 3, MPI_INT, 0, 2, MPI_COMM_WORLD);
 			MPI_Send(out->data, dimensoes[0]*dimensoes[1], MPI_UNSIGNED_CHAR, 0, 3, MPI_COMM_WORLD);
 
@@ -211,14 +226,13 @@ int main(int argc, char *argv[]) {
 			Mat *out;
 			out = aplica_smooth_color(pedaco);
 			pedaco.release();
+			dimensoes[0] = out->size().width;
+			dimensoes[1] =  out->size().height;
 			MPI_Send(dimensoes, 3, MPI_INT, 0, 2, MPI_COMM_WORLD);
 			MPI_Send(out->data, dimensoes[0]*dimensoes[1]*3, MPI_UNSIGNED_CHAR, 0, 3, MPI_COMM_WORLD);
 		}
-		//namedWindow("in", CV_WINDOW_AUTOSIZE );
-		//imshow("in", mat);
-		//waitKey(0);
-	}
 
+	}
 	MPI_Finalize();
 	return 0;
 }
