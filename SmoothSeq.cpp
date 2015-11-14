@@ -11,6 +11,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <sys/time.h>
 
 
 using namespace cv;
@@ -117,7 +118,6 @@ Mat *aplica_smooth_color(Mat *in) {
 int main(int argc, char *argv[]) {
 	//diz se a imagem é grayscale or color
 	int tipo_img = atoi(argv[2]);
-	clock_t itime, ftime;
 	//arquivo de entrada
 	const char *fileIn, *fileOut;
 		
@@ -143,7 +143,10 @@ int main(int argc, char *argv[]) {
 		cout << "Nao foi possivel abrir a  imagem: " << endl;
 		return -1;
 	}
-	itime = clock();
+	//pegar o tempo de inicio
+	struct timeval inicio, fim;
+    gettimeofday(&inicio,0);
+
 	//aplica algoritmo smooth e recebe a nova imagem
 	if(tipo_img == 0) {
 		out = aplica_smooth_grayscale(&in);
@@ -153,10 +156,11 @@ int main(int argc, char *argv[]) {
 		cout << "Tipo de imagem nao suportado" << endl;
 		return -1;
 	}
-	ftime = clock();
+	//pega o tempo de fim, faz a diferença e imprime na tela
+	gettimeofday(&fim,0);
+    float speedup = (fim.tv_sec + fim.tv_usec/1000000.0) - (inicio.tv_sec + inicio.tv_usec/1000000.0);
+    cout << "tempo MPI: " << speedup << endl;
 	imwrite(fileOut, *out);
-	printf("\nExecution time: %lf seconds\n",(ftime-itime) / (CLOCKS_PER_SEC * 1.0)); 
-	printf("-----------------------------------------\n");
 	in.release();
 	out->release();
     return 0;
