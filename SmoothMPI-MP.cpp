@@ -1,6 +1,9 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
+
+#include <sys/time.h>
+
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -94,18 +97,15 @@ void smooth(Mat& in,int tipo_img) {
 
 	//copia imagem de entrada
 	if(tipo_img == 0) {
-		out = Mat(in.size(), CV_8U, 1);
+		out = Mat(in.size().height - 4, in.size().width - 4, CV_8U, 1);
 	} else if(tipo_img == 1) {
-		out = Mat(in.size(), CV_8UC3, 1);
+		out = Mat(in.size().height - 4, in.size().width - 4, CV_8UC3, 1);
 	}
 
-	//achar a média aritmética e depois atualizar o pixel
-	float average;
 	omp_set_num_threads(NTHREADS);	
 
 	int ini_i[4],ini_j[4],end_i[4],end_j[4];
 	int meio_w, meio_h;
-	copyMakeBorder(in, in, border, border, border, border, BORDER_REPLICATE);
 
 	//calcula o meio da imagem
 	meio_h = in.size().height/2;
@@ -143,9 +143,7 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	//descobre quantos nós a maquina suporta
     MPI_Comm_size(MPI_COMM_WORLD, &NUM_NODES);
-
     Mat in, crop;
-    int h_img_entrada, w_img_entrada;
 
     if(rank == 0)  {
     	//le a imagem  e salva suas dimensões para um futuro uso
@@ -154,8 +152,10 @@ int main(int argc, char *argv[]) {
 		} else if(tipo_img == 1) {
 			in = imread(argv[1], CV_LOAD_IMAGE_COLOR);
 		}
-	    h_img_entrada = in.size().height;
-	    w_img_entrada = in.size().width;
+
+		//pegar o tempo de inicio
+		struct timeval inicio, fim;
+    	gettimeofday(&inicio,0);
 
 	    //calcula o tamanho de cada pedaço
 		int divisao_h = in.size().height/(NUM_NODES - 1);
@@ -168,9 +168,16 @@ int main(int argc, char *argv[]) {
 			//recorto um pedaço da imagem pra mandar para o nó i
 			//if else é pra pegar o restinho da imagem que sobre quando a divisão não é inteira
 			if(i != NUM_NODES - 1) {
-				crop =in(Rect(0,divisao_h*(i - 1),divisao_w,divisao_h));
+				if(i == 1) {
+					crop = in(Rect(0,divisao_h*(i - 1),divisao_w,divisao_h + 2));
+					copyMakeBorder(crop, crop, 2, 0, border, border, BORDER_REPLICATE);
+				} else {
+					crop = in(Rect(0,divisao_h*(i - 1) - 2,divisao_w,divisao_h + 4));
+					copyMakeBorder(crop, crop, 0, 0, border, border, BORDER_REPLICATE);
+				}
 			} else {
-				crop =in(Rect(0,divisao_h*(i - 1),divisao_w,divisao_h + resto_divisao));
+				crop =in(Rect(0,divisao_h*(i - 1) - 2,divisao_w,divisao_h + resto_divisao));
+				copyMakeBorder(crop, crop, 0, 2, border, border, BORDER_REPLICATE);
 			}
 			//pego as dimensões do pedaço da imagem e salvo num tipo struct 'image' definido la em cima
 			dimensoes[0] = crop.size().width;
@@ -210,6 +217,11 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+		//pega o tempo de fim faz a diferença com o começo e imprime na tela
+		gettimeofday(&fim,0);
+    	float speedup = (fim.tv_sec + fim.tv_usec/1000000.0) - (inicio.tv_sec + inicio.tv_usec/1000000.0);
+    	cout << speedup << endl;
+
 		imwrite(argv[3], out);
 	} else {
 		//parte do código que roda dentro de cada nó
