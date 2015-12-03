@@ -96,15 +96,15 @@ int main(int argc, char *argv[]) {
     //O cast trunca o ponto flutuante, por isso soma-se 1
     numBlocks = (int) (nb + 1.0);
 
-	unsigned char *original,*final;
-	
+	unsigned char *original,*saida;
+  
     //Malloc especial do CUDA, para os vetores originais e de saída
     //Estes vetores são passados às funções que serão calculadas pela
     //placa de vídeo
     
     int *height, *width;
-    cudaMalloc(&original, (in.size().width + 4)*(in.size().height + 4));
-    cudaMalloc(&final, in.size().width*in.size().height);
+    cudaMalloc(&original, (in.size().width +4)*(in.size().height +4));
+    cudaMalloc(&saida, in.size().width*in.size().height);
     cudaMalloc(&height, sizeof(int));
     cudaMalloc(&width, sizeof(int));	
     int l_height = in.size().height, l_width = in.size().width;
@@ -112,13 +112,13 @@ int main(int argc, char *argv[]) {
 	struct timeval inicio, fim;
     gettimeofday(&inicio,0);
     
-    cudaMemcpy(original, in.data,( in.size().width+4)*(in.size().height+4), cudaMemcpyHostToDevice);
+    cudaMemcpy(original, in.data,( in.size().width +4)*(in.size().height +4), cudaMemcpyHostToDevice);
 	cudaMemcpy(height, &l_height, sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(width, &l_width, sizeof(int), cudaMemcpyHostToDevice);
-	smooth<<<numBlocks,nthreads>>>(original,final, *height, *width);
+	smooth<<<numBlocks,nthreads>>>(original,saida, *height, *width);
 	
 	out = new Mat(in.size().height, in.size().width, CV_8U, 1);
-	cudaMemcpy(out->data, final, (out->size().width)*(out->size().height),cudaMemcpyDeviceToHost);
+	cudaMemcpy(out->data, saida, (out->size().width+)*(out->size().height),cudaMemcpyDeviceToHost);
 	
 	//pega o tempo de fim, faz a diferença e imprime na tela
 	gettimeofday(&fim,0);
@@ -129,9 +129,3 @@ int main(int argc, char *argv[]) {
 	out->release();
     return 0;
 }
-
-
-//ssh grupo18b@halley.lasdpc.icmc.usp.br -p 22200
-//grupo18b#raul
-
-
