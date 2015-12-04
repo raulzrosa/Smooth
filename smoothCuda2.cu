@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
     cudaMemcpy(original, in.data,( in.size().width +4)*(in.size().height +4), cudaMemcpyHostToDevice);
 	cudaMemcpy(height, &l_height, sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(width, &l_width, sizeof(int), cudaMemcpyHostToDevice);
-	smooth<<<numBlocks,nthreads>>>(original,saida, *height, *width);
+	smooth<<<nb,nthreads>>>(original,saida, *height, *width);
 	
 	out = new Mat(in.size().height, in.size().width, CV_8U, 1);
 	cudaMemcpy(out->data, saida, (out->size().width+)*(out->size().height),cudaMemcpyDeviceToHost);
