@@ -127,6 +127,8 @@ int main(int argc, char *argv[]) {
 	imwrite(fileOut, *out);
 	in.release();
 	out->release();
+    cudaFree(original);
+    cudaFree(final);
     return 0;
 }
 
