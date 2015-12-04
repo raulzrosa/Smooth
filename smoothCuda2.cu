@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
     cout << nb << endl;
     //O cast trunca o ponto flutuante, por isso soma-se 1
     numBlocks = (int) (nb + 1.0);
-
+	cout << numBlocks << endl;
 	unsigned char *original,*final;
 	
     //Malloc especial do CUDA, para os vetores originais e de saída
