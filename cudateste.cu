@@ -19,6 +19,7 @@ using namespace std;
 //Função que calcula a média de uma "matriz" 5x5 a partir de uma dada posição
 __global__ void smooth( unsigned char *entrada,unsigned char *saida, int n_linhas, int n_colunas ) {
     //Calcula a posição no vetor (id_bloco * total_blocos + id_thread)
+    float media;
     int posicao = blockIdx.x * blockDim.x + threadIdx.x;
     //Se a posição não é maior que o limite da imagem original...
     if(posicao < (n_linhas)*(n_colunas)) {
@@ -49,7 +50,8 @@ __global__ void smooth( unsigned char *entrada,unsigned char *saida, int n_linha
                         entrada[posicao+(3*(n_colunas+4))+4]+
                         entrada[posicao+(4*(n_colunas+4))+4];
         //calcula a média
-        saida[posicao] = saida[posicao]/25;
+	media = (unsigned char) saida[posicao]/25;
+        saida[posicao] = media;
     }
 }
 
@@ -68,7 +70,7 @@ int main(int argc, char *argv[]) {
 	//matriz com a imagem de entrada
 	Mat in;
 	//matriz que receberá a imagem de saida
-	Mat *out;
+	Mat out;
 
 	//le o nome da imagem
 	fileIn = argv[1];
@@ -111,16 +113,23 @@ int main(int argc, char *argv[]) {
 
 	smooth<<<numBlocks,nthreads>>>(original, saida, l_height, l_width);
 	
-	out = new Mat(l_height, l_width, CV_8U, 1);
-	cudaMemcpy(out->data, saida, l_width*l_height,cudaMemcpyDeviceToHost);
-	
+	unsigned char *out_aux = (unsigned char *) malloc(l_height*l_width*sizeof(unsigned char));
+//	out = new Mat(l_height, l_width, CV_8U, 1);
+	cudaMemcpy(out_aux, saida, l_width*l_height,cudaMemcpyDeviceToHost);
+        
+	out(l_height*l_width,out_aux, CV_8UC(1), Scalar::all(0));
+
+//	for( int i = 0; i < l_width*l_height; i++) {
+//		cout << show[i] << " ";
+//	}
+	//cout << saida << endl;	
 	//pega o tempo de fim, faz a diferença e imprime na tela
 	gettimeofday(&fim,0);
     float speedup = (fim.tv_sec + fim.tv_usec/1000000.0) - (inicio.tv_sec + inicio.tv_usec/1000000.0);
     cout << speedup << endl;
-	imwrite(fileOut, *out);
+	imwrite(fileOut, out);
 	in.release();
-	out->release();
+	out.release();
     cudaFree(original);
     cudaFree(saida);
 
